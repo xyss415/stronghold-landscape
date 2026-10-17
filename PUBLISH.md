@@ -157,7 +157,9 @@ Release 里，玩家不想打补丁就能直接装。它永远不进 git。
 |---|---|
 | `pwsh : 无法将“pwsh”项识别为 cmdlet...` | `pwsh` 是 PowerShell 7，Windows 自带的是 `powershell` 5.1。改用 `powershell -NoProfile -File tools\push-to-github.ps1`（脚本已按 5.1 兼容，UTF-8 BOM 也加了） |
 | `SSL connection could not be established` / `OpenSSL SSL_connect` | 网络或代理问题。开代理后：`git config --global http.proxy http://127.0.0.1:7890`（HTTPS_PROXY 同理） |
-| 推送要求输入密码 | GitHub 只收 PAT 或 SSH key，不收账号密码 |
+| 推送要求输入密码 | GitHub 只收 PAT 或 SSH key，不收账号密码（用户名填 `xyss415`，密码处粘 PAT） |
+| `could not read Username for 'https://github.com': terminal prompts disabled` / `Authentication failed for ...` / `403` | 脚本拿不到凭证。**交互式**跑一次让凭据管理器弹窗：`git -C F:\dsharness\stronghold-landscape push -u origin main`；或 `$env:GH_TOKEN="ghp_..."` 后重跑脚本（旧版脚本会强制关掉终端提示，已修正） |
+| `! [rejected] main -> main (fetch first)` / `non-fast-forward` | 远端已有提交（建仓库时勾了 README）。用 `-Force` 覆盖：`powershell -NoProfile -File tools\push-to-github.ps1 -Force`；或保留远端：`git pull --rebase origin main` 再推 |
 | `remote: error: File ... is 123.00 MB; exceeds GitHub's file size limit of 100.00 MB` | 大文件别进 git，挂 Release |
 | `Updates were rejected because the remote contains work...` | 建仓库时勾了 README。`git pull --rebase origin main` 再推，或者删掉远程仓库重建 |
 | 提交作者是错的 | `git config user.email ...` 后 `git commit --amend --reset-author` |

@@ -3,6 +3,7 @@
 # 兼容 Windows 自带的 PowerShell 5.1 和 PowerShell 7：
 #   powershell -NoProfile -File tools\push-to-github.ps1              # 直连
 #   powershell -NoProfile -File tools\push-to-github.ps1 -Proxy 127.0.0.1:7890
+#   powershell -NoProfile -File tools\push-to-github.ps1 -Force      # 远端已有提交时强推
 #   powershell -NoProfile -File tools\push-to-github.ps1 -DryRun     # 只检查，不推送
 #
 # 认证：GitHub 只收 PAT（或 SSH key）。装了 Git Credential Manager 时首次 push 会弹窗登录；
@@ -13,6 +14,7 @@ param(
   [string]$Repo = "stronghold-landscape",
   [string]$Proxy = "",
   [string]$Token = $env:GH_TOKEN,
+  [switch]$Force,
   [switch]$DryRun
 )
 
@@ -20,7 +22,9 @@ param(
 # 而 git 的失败信息正好走 stderr，所以这里用 Continue，靠 $LASTEXITCODE 判断成败。
 $ErrorActionPreference = "Continue"
 $root = Split-Path -Parent $PSScriptRoot
-$env:GIT_TERMINAL_PROMPT = "0"
+# 只有明确给了 token（或走 SSH）才禁用终端提示；否则保留提示，
+# 让 Git Credential Manager / 终端能弹窗要凭证——否则会直接报 "could not read Username"。
+if ($Token) { $env:GIT_TERMINAL_PROMPT = "0" }
 
 function Say($m)  { Write-Host ""; Write-Host "==> $m" -ForegroundColor Green }
 function Warn($m) { Write-Host "[!] $m" -ForegroundColor Yellow }
@@ -105,12 +109,59 @@ if ($Token) {
   $pushUrl = "https://$GitHubUser`:$Token@github.com/$GitHubUser/$Repo.git"
 }
 
-Say "3/4 推送分支 $branch"
-$r = Run ($git + @("push", $pushUrl, "refs/heads/$branch:refs/heads/$branch"))
+$pushArgs = @("push")
+if ($Force) { $pushArgs += "--force" }
+$pushArgs += @($pushUrl, "refs/heads/$branch:refs/heads/$branch")
+
+$mode = ""
+if ($Force) { $mode = "（强推）" }
+Say "3/4 推送分支 $branch$mode"
+if (-not $Token) {
+  Write-Host "  需要认证时会弹窗 / 提示输入：用户名 $GitHubUser，密码位置粘 PAT（个人访问令牌）" -ForegroundColor DarkGray
+}
+
+$r = Run ($git + $pushArgs)
 if ($r.Code -ne 0) {
-  Write-Host "  $($r.Out)" -ForegroundColor DarkGray
-  Warn "如果报 Updates were rejected（建仓库时勾了 README），先 git pull --rebase origin main，"
-  Warn "或直接强推（新仓库没有别人的提交，安全）：$($git -join ' ') push -u origin $branch --force"
+  Write-Host ""
+  Write-Host "-------------- git 的原始报错（把这一段贴出来最快） --------------" -ForegroundColor Red
+  Write-Host $r.Out
+  Write-Host "-----------------------------------------------------------------" -ForegroundColor Red
+  $log = Join-Path $root "push-error.log"
+  $r.Out | Set-Content -LiteralPath $log -Encoding UTF8
+  Write-Host "  已存到 $log" -ForegroundColor DarkGray
+  Write-Host ""
+
+  $o = $r.Out
+  if ($o -match 'could not read Username|terminal prompts disabled|Authentication failed|Invalid username or password|403|Permission to .+ denied') {
+    Warn "认证问题：git 拿不到可用凭证（最常见）。"
+    Write-Host @"
+  任选一种：
+   1) 允许弹窗登录（最省事）：
+        git -C $root push -u origin $branch
+      Git Credential Manager 会开浏览器；若提示输入，用户名 $GitHubUser，密码处粘 PAT。
+   2) 把 PAT 交给脚本（只在本次进程内使用，不写进 .git/config）：
+        `$env:GH_TOKEN = "ghp_你的令牌"
+        powershell -NoProfile -File tools\push-to-github.ps1
+      PAT：https://github.com/settings/tokens → Fine-grained → Repository access 选 $Repo
+           → Permissions → Contents: Read and write。
+"@ -ForegroundColor Yellow
+  } elseif ($o -match '\[rejected\]|non-fast-forward|fetch first|Updates were rejected') {
+    Warn "远端已经有本地没有的提交（建仓库时勾了 README / .gitignore / license）。"
+    Write-Host @"
+  任选一种：
+   1) 强推，用本地这版覆盖远端（新仓库没有别人的提交，安全）：
+        powershell -NoProfile -File tools\push-to-github.ps1 -Force
+   2) 保留远端那个 README，把本地提交接在后面：
+        git -C $root pull --rebase origin $branch
+        git -C $root push -u origin $branch
+"@ -ForegroundColor Yellow
+  } elseif ($o -match 'Repository not found|does not exist|not found') {
+    Warn "仓库不存在或没有权限：确认 https://github.com/$GitHubUser/$Repo 能打开，且 PAT 授权了这个仓库。"
+  } elseif ($o -match 'SSL|certificate|schannel|SEC_E|Could not resolve host|Failed to connect|Connection was reset|timed out') {
+    Warn "网络层问题：换网络或开代理后重试，例如 -Proxy 127.0.0.1:7890。"
+  } else {
+    Warn "没识别出原因，把上面红色区间的报错贴出来。"
+  }
   Die "推送分支失败"
 }
 
@@ -120,7 +171,10 @@ $tags = @($r.Out -split "`r?`n" | Where-Object { $_ })
 if ($tags.Count -gt 0) {
   Say "4/4 推送标签：$($tags -join ', ')"
   $r = Run ($git + @("push", $pushUrl, "--tags"))
-  if ($r.Code -ne 0) { Write-Host "  $($r.Out)" -ForegroundColor DarkGray; Warn "标签推送失败；可稍后重试：git push origin --tags" }
+  if ($r.Code -ne 0) {
+    Write-Host $r.Out -ForegroundColor Red
+    Warn "标签推送失败；修好认证后重试：git -C $root push origin --tags（或加 -Force）"
+  }
 } else {
   Say "4/4 没有标签需要推送（没有 tag 就不会自动建 Release）"
 }
