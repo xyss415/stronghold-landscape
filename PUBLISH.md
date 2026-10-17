@@ -60,22 +60,37 @@ git log --oneline
 
 ## 3. 关联远程并推送
 
-先在 <https://github.com/settings/tokens> 建一个 **Fine-grained token**，只授权这一个仓库的
-`Contents: Read and write`：
+> origin 已经配好（`https://github.com/xyss415/stronghold-landscape.git`），本地有 1 个提交 + tag `v0.3.0-ls1`。
+> 最省事的方式：在有 GitHub 网络的机器上跑 `pwsh tools/push-to-github.ps1`——它会自检状态、测连通性、
+> 推 `main` 和所有 tag，失败时直接给出对应处理办法。走代理加 `-Proxy 127.0.0.1:7890`，只想检查加 `-DryRun`。
+
+手工方式（GitHub 只收 **PAT** 或 SSH key，不收账号密码；PAT 在
+<https://github.com/settings/tokens> 建，Fine-grained 并只授权这个仓库的 `Contents: Read and write`）：
 
 ```powershell
 git remote add origin https://github.com/xyss415/stronghold-landscape.git
-git push -u origin main
-# 用户名填 GitHub 用户名，密码位置粘贴 PAT（GitHub 早已不接受账号密码）
+git push -u origin main            # 用户名 xyss415，密码处粘 PAT
+git push origin v0.3.0-ls1        # 触发 Actions → 自动建 Release
 ```
 
 想用 SSH 而不是 PAT：
 
 ```powershell
-ssh-keygen -t ed25519 -C "you@example.com"
+ssh-keygen -t ed25519 -C "xyss415@users.noreply.github.com"
 Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub | Set-Clipboard   # 粘到 GitHub → Settings → SSH keys
 git remote set-url origin git@github.com:xyss415/stronghold-landscape.git
 git push -u origin main
+```
+
+这台开发机目前连不上 GitHub（`schannel: SEC_E_NO_CREDENTIALS`、`curl https://github.com` 返回 000，
+本机也没有在监听的代理端口），所以推送要在你自己那边的网络执行；或者先在能上网的机器上
+`git clone` 本地的 bundle 再推：
+
+```powershell
+git bundle create ..\stronghold-landscape.bundle --all
+# 拷到另一台机器：
+git clone stronghold-landscape.bundle repo && cd repo && git remote set-url origin https://github.com/xyss415/stronghold-landscape.git
+git push origin main --tags
 ```
 
 ## 4. 发 Release（补丁包不要进 git）
