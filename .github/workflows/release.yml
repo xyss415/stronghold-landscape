@@ -1,0 +1,41 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 打包增量补丁
+        run: bash tools/build-patch.sh
+
+      - name: 检查补丁内容（17 个文件，含 landscape.js）
+        run: |
+          tar -tzf dist/*.tar.gz | sort
+          tar -tzf dist/*.tar.gz | grep -q 'public/js/ui/landscape.js'
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: patch
+          path: dist/
+
+      - name: 创建 Release（仅在打 tag 时）
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            dist/stronghold-*-landscape-patch.tar.gz \
+            dist/SHA256SUMS.txt \
+            --title "横屏补丁 ${GITHUB_REF_NAME}" \
+            --notes-file CHANGELOG.md

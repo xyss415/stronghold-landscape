@@ -1,0 +1,12 @@
+* text=auto eol=lf
+
+*.sh    text eol=lf
+*.ps1   text eol=crlf
+*.py    text eol=lf
+*.js    text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.json  text eol=lf
+
+# 补丁清单必须逐字节保持原样（里面记着每个文件的 size/sha256）
+patch/MANIFEST.json -text

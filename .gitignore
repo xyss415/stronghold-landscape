@@ -1,0 +1,22 @@
+# 打包产物与临时文件
+dist/
+*.tar.gz
+!docs/**/*.tar.gz
+
+# 系统 / 编辑器
+Thumbs.db
+Desktop.ini
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 重定基工具的工作目录（含合并冲突文件）
+.rebuild/
+work/
