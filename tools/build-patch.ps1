@@ -1,4 +1,4 @@
-# 把 patch/ 打包成可部署的增量补丁包，并生成校验和。
+﻿# 把 patch/ 打包成可部署的增量补丁包，并生成校验和。
 #
 #   pwsh tools/build-patch.ps1            → dist/stronghold-v<app>-landscape-patch.tar.gz
 #                                            dist/SHA256SUMS.txt

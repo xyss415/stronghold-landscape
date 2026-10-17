@@ -132,7 +132,9 @@ python rebuild-landscape.py --ours stronghold-v0.3.0-landscape-patch.tar.gz \
 ## 打包与发布
 
 ```powershell
-pwsh tools/build-patch.ps1        # → dist/stronghold-v0.3.0-landscape-patch.tar.gz + dist/SHA256SUMS
+powershell -NoProfile -File tools\build-patch.ps1
+# → dist/stronghold-v0.3.0-landscape-patch.tar.gz + dist/SHA256SUMS.txt
+# （Windows 自带的是 powershell；装了 PowerShell 7 才可以用 pwsh）
 ```
 
 打 tag 后 GitHub Actions 会自动打包并创建 Release（见 `.github/workflows/release.yml`）：

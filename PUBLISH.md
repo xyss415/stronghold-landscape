@@ -60,9 +60,11 @@ git log --oneline
 
 ## 3. 关联远程并推送
 
-> origin 已经配好（`https://github.com/xyss415/stronghold-landscape.git`），本地有 1 个提交 + tag `v0.3.0-ls1`。
-> 最省事的方式：在有 GitHub 网络的机器上跑 `pwsh tools/push-to-github.ps1`——它会自检状态、测连通性、
-> 推 `main` 和所有 tag，失败时直接给出对应处理办法。走代理加 `-Proxy 127.0.0.1:7890`，只想检查加 `-DryRun`。
+> origin 已经配好（`https://github.com/xyss415/stronghold-landscape.git`），本地有 2 个提交 + tag `v0.3.0-ls1`。
+> 最省事的方式：在有 GitHub 网络的机器上跑 `powershell -NoProfile -File tools\push-to-github.ps1`
+> ——它会自检状态、测连通性、推 `main` 和所有 tag，失败时直接给出对应处理办法。
+> 走代理加 `-Proxy 127.0.0.1:7890`，只想检查加 `-DryRun`。
+> （Windows 自带的是 `powershell` 5.1；`pwsh` 是 PowerShell 7，需要另外安装，没装就用前者。）
 
 手工方式（GitHub 只收 **PAT** 或 SSH key，不收账号密码；PAT 在
 <https://github.com/settings/tokens> 建，Fine-grained 并只授权这个仓库的 `Contents: Read and write`）：
@@ -110,7 +112,8 @@ git push origin v0.3.0-ls1
 **方式 B：本地打包 + 网页上传**
 
 ```powershell
-pwsh tools/build-patch.ps1     # → dist/stronghold-v0.3.0-landscape-patch.tar.gz + SHA256SUMS.txt
+powershell -NoProfile -File tools\build-patch.ps1
+# → dist/stronghold-v0.3.0-landscape-patch.tar.gz + SHA256SUMS.txt
 ```
 
 GitHub → Releases → *Draft a new release* → tag `v0.3.0-ls1` → 标题「横屏补丁 v0.3.0-ls1」
@@ -152,6 +155,7 @@ Release 里，玩家不想打补丁就能直接装。它永远不进 git。
 
 | 现象 | 处理 |
 |---|---|
+| `pwsh : 无法将“pwsh”项识别为 cmdlet...` | `pwsh` 是 PowerShell 7，Windows 自带的是 `powershell` 5.1。改用 `powershell -NoProfile -File tools\push-to-github.ps1`（脚本已按 5.1 兼容，UTF-8 BOM 也加了） |
 | `SSL connection could not be established` / `OpenSSL SSL_connect` | 网络或代理问题。开代理后：`git config --global http.proxy http://127.0.0.1:7890`（HTTPS_PROXY 同理） |
 | 推送要求输入密码 | GitHub 只收 PAT 或 SSH key，不收账号密码 |
 | `remote: error: File ... is 123.00 MB; exceeds GitHub's file size limit of 100.00 MB` | 大文件别进 git，挂 Release |
