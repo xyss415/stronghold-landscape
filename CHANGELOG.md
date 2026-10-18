@@ -2,6 +2,23 @@
 
 版本号约定：`v<上游版本>-ls<n>`，本补丁与上游版本严格绑定（`MANIFEST.json` 记录每个文件的 `size`/`sha256`）。
 
+## v0.3.1-ls1 — 2026-10-18
+
+对应上游 v0.3.1 的重定基版本。横屏功能本身没有变化，改动全部来自上游 0.3.1 的更新与三方合并。
+
+**适配**
+
+- 补丁重新基于上游 v0.3.1：`MANIFEST.json` 按 0.3.1 重算（6949 个文件），补丁仍为 17 个文件。
+- 与上游 0.3.1 在 4 个文件的同区改动已合并：`docs/PLAYING.md`、`public/css/devices.css`、
+  `public/js/screens/game.js`、`public/js/ui/settings.js`。
+- `devices.css` 新增异形屏适配（`html[data-fit]`）后，旋转态仍用 `--app-w/--app-h` 计算 rem，
+  避免两个功能同时开启时缩放被覆盖。
+
+**兼容**
+
+- 只适用于上游 **v0.3.1**；从 v0.3.0 升级请先恢复/安装官方 v0.3.1，再打补丁。
+- `deploy/deploy-landscape-patch.sh` 改为版本无关：从补丁包的 `MANIFEST.json` 读取所需版本，不匹配直接中止。
+
 ## v0.3.0-ls1 — 2026-10-17
 
 首个公开版本，对应上游 v0.3.0。

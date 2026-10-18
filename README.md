@@ -1,9 +1,9 @@
 # 卫戍协议：盟约 · 一键横屏补丁
 
-![app](https://img.shields.io/badge/app-0.3.0-2ea44f)
-![patch](https://img.shields.io/badge/patch-v0.3.0--ls1-blue)
+![app](https://img.shields.io/badge/app-0.3.1-2ea44f)
+![patch](https://img.shields.io/badge/patch-v0.3.1--ls1-blue)
 ![license](https://img.shields.io/badge/code%20license-GPL--3.0--or--later-blue)
-![size](https://img.shields.io/badge/patch-17%20files%20~640%20KB-informational)
+![size](https://img.shields.io/badge/patch-17%20files%20~700%20KB-informational)
 
 [卫戍协议：盟约 / Stronghold Protocol: Alliance](https://github.com/sganggs/Stronghold-Protocol) 的**横屏适配补丁**。
 
@@ -47,16 +47,16 @@ WebView 既不会自动转屏，也不允许 `screen.orientation.lock()`——�
 
 ## 安装
 
-补丁包只覆盖 **17 个文件**（1 个新增 + 16 个替换），约 640 KB，不需要上传完整包、不动
+补丁包只覆盖 **17 个文件**（1 个新增 + 16 个替换），约 700 KB，不需要上传完整包、不动
 `node_modules` / `public/assets`、不用 `npm ci`、不用联网。
 
-### 方式一：增量补丁（推荐，已有 v0.3.0 安装）
+### 方式一：增量补丁（推荐，已有 v0.3.1 安装）
 
 ```bash
 # 1) 把补丁包上传到服务器（宝塔：/www/wwwroot/）
 #    或者直接从本仓库 Release 下载：
-#    curl -L -o /www/wwwroot/stronghold-v0.3.0-landscape-patch.tar.gz \
-#      https://github.com/xyss415/stronghold-landscape/releases/latest/download/stronghold-v0.3.0-landscape-patch.tar.gz
+#    curl -L -o /www/wwwroot/stronghold-v0.3.1-landscape-patch.tar.gz \
+#      https://github.com/xyss415/stronghold-landscape/releases/latest/download/stronghold-v0.3.1-landscape-patch.tar.gz
 
 # 2) 执行部署脚本（root）
 cd /www/wwwroot && bash deploy-landscape-patch.sh
@@ -65,13 +65,13 @@ cd /www/wwwroot && bash deploy-landscape-patch.sh
 bash deploy-landscape-patch.sh --install /www/wwwroot/game-stronghold --pkg /root/patch.tar.gz
 ```
 
-脚本会：检查是否 v0.3.0 → 备份当前代码（几百 KB）→ 停服务 → 覆盖解压 → 修权限 → 起服务并验证
+脚本会：检查是否 v0.3.1 → 备份当前代码（几百 KB）→ 停服务 → 覆盖解压 → 修权限 → 起服务并验证
 `/healthz`、`/js/ui/landscape.js`、`/data/config.json`、`/studio/` → 打印一键回滚命令。
 **会结束正在进行的对局（游戏无存档），请在没人玩的时候执行。**
 
 ### 方式二：完整包（全新安装 / 不想打补丁）
 
-用横屏完整包 `stronghold-v0.3.0-full-landscape.tar.gz`（约 780 MB，见 Release 资产或上游仓库），
+用横屏完整包 `stronghold-v0.3.1-full-landscape.tar.gz`（约 780 MB，见 Release 资产或上游仓库），
 按上游 [README · 快速开始](https://github.com/sganggs/Stronghold-Protocol#快速开始) 部署即可。
 
 ### 验证
@@ -87,23 +87,23 @@ curl -s http://127.0.0.1:3001/js/ui/landscape.js | grep -c sp-force-landscape   
 
 ```bash
 systemctl stop stronghold
-tar -xzf /www/backup/stronghold-code/code-v0.3.0-before-landscape-<时间戳>.tar.gz -C /www/wwwroot/game-stronghold
+tar -xzf /www/backup/stronghold-code/code-v0.3.1-before-landscape-<时间戳>.tar.gz -C /www/wwwroot/game-stronghold
 rm -f /www/wwwroot/game-stronghold/public/js/ui/landscape.js
 systemctl start stronghold
 ```
 
 ## 兼容性（重要）
 
-补丁和**确切的一个版本**绑定：包内 `MANIFEST.json` 记录着 v0.3.0 每个文件的 `size` / `sha256`，
+补丁和**确切的一个版本**绑定：包内 `MANIFEST.json` 记录着 v0.3.1 每个文件的 `size` / `sha256`，
 服务端更新校验也按版本进行。所以：
 
-- ✅ 只适用于 **v0.3.0**（`deploy-landscape-patch.sh` 会先检查 `package.json` 的 version，不匹配直接中止）
-- ❌ 不能套到 0.3.1 / 0.4.0 上（上游一发新版就会失效）
+- ✅ 只适用于 **v0.3.1**（`deploy-landscape-patch.sh` 会先检查 `package.json` 的 version，不匹配直接中止）
+- ❌ 不能套到 0.3.2 / 0.4.0 上（上游一发新版就会失效）
 - 🔁 上游发新版后，用 [`tools/rebuild-landscape.py`](tools/rebuild-landscape.py) 把改动**重定基**到新版：
 
 ```bash
-python rebuild-landscape.py --ours stronghold-v0.3.0-landscape-patch.tar.gz \
-                            --new  stronghold-v0.3.1-full.tar.gz \
+python rebuild-landscape.py --ours stronghold-v0.3.1-landscape-patch.tar.gz \
+                            --new  stronghold-v0.3.2-full.tar.gz \
                             --out-dir dist/
 ```
 
@@ -115,7 +115,7 @@ python rebuild-landscape.py --ours stronghold-v0.3.0-landscape-patch.tar.gz \
 ```
 .
 ├─ patch/                        # 镜像游戏安装目录，17 个文件就是补丁的全部内容
-│  ├─ MANIFEST.json              #   v0.3.0 文件清单 + size/sha256（服务端校验用）
+│  ├─ MANIFEST.json              #   v0.3.1 文件清单 + size/sha256（服务端校验用）
 │  ├─ docs/PLAYING.md
 │  └─ public/{index.html,css,js,i18n}/
 ├─ deploy/deploy-landscape-patch.sh
@@ -133,15 +133,15 @@ python rebuild-landscape.py --ours stronghold-v0.3.0-landscape-patch.tar.gz \
 
 ```powershell
 powershell -NoProfile -File tools\build-patch.ps1
-# → dist/stronghold-v0.3.0-landscape-patch.tar.gz + dist/SHA256SUMS.txt
+# → dist/stronghold-v0.3.1-landscape-patch.tar.gz + dist/SHA256SUMS.txt
 # （Windows 自带的是 powershell；装了 PowerShell 7 才可以用 pwsh）
 ```
 
 打 tag 后 GitHub Actions 会自动打包并创建 Release（见 `.github/workflows/release.yml`）：
 
 ```bash
-git tag -a v0.3.0-ls1 -m "landscape patch for app 0.3.0"
-git push origin v0.3.0-ls1
+git tag -a v0.3.1-ls1 -m "landscape patch for app 0.3.1"
+git push origin v0.3.1-ls1
 ```
 
 > 单文件 >100 MB 会被 GitHub 直接拒绝 push，仓库里只放源码；完整包（~780 MB）放 Release 资产
@@ -151,18 +151,18 @@ git push origin v0.3.0-ls1
 
 - 只处理「画面旋转」，不处理 iPhone 刘海 / 安全区之外的系统 UI 方向；旋转期间长按菜单、输入法弹窗位姿依赖浏览器实现。
 - 旋转态下画布按新视口重新排布，极低端机第一次切换可能掉几帧。
-- 只对 v0.3.0 生效；补丁走的是覆盖文件，不能和同样改这些文件的其他补丁共存。
-- 由于改的是游戏本体文件，**没有**打包成 0.3.0 的插件系统（`plugins/*/plugin.json`）里的 UI 插件；
+- 只对 v0.3.1 生效；补丁走的是覆盖文件，不能和同样改这些文件的其他补丁共存。
+- 由于改的是游戏本体文件，**没有**打包成 0.3.1 的插件系统（`plugins/*/plugin.json`）里的 UI 插件；
   那种形态只能操作 DOM，够不到渲染层的坐标换算。
 
 ## 许可
 
 - 本仓库**自己编写的代码**（`public/js/ui/landscape.js`、脚本、工具）：**GPL-3.0-or-later**，见 [LICENSE](LICENSE)。
-- 补丁其余内容是上游 v0.3.0 的**修改副本**，同样按上游的 GPL-3.0-or-later 授权分发。
+- 补丁其余内容是上游 v0.3.1 的**修改副本**，同样按上游的 GPL-3.0-or-later 授权分发。
 - 《明日方舟》素材（名称、角色、美术、音乐、文本、数据）版权归原权利人，**不适用 GPL**，见 [NOTICE.md](NOTICE.md)。
 
 ## 相关
 
-- 上游项目：[sganggs/Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol) · [v0.3.0](https://github.com/sganggs/Stronghold-Protocol/releases)
+- 上游项目：[sganggs/Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol) · [v0.3.1](https://github.com/sganggs/Stronghold-Protocol/releases)
 - 上游文档：`docs/PLUGINS.md`（插件系统）、`docs/DEPLOY.md`（部署）、`docs/PLUGIN-GUIDE.md`（写插件）
-- 本补丁的版本号约定：`v<上游版本>-ls<n>`，例如 `v0.3.0-ls1`
+- 本补丁的版本号约定：`v<上游版本>-ls<n>`，例如 `v0.3.1-ls1`

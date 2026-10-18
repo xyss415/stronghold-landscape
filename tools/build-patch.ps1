@@ -15,7 +15,7 @@ Set-Location $root
 $patchDir = Join-Path $root "patch"
 if (-not (Test-Path (Join-Path $patchDir "MANIFEST.json"))) { throw "patch/MANIFEST.json 不存在，仓库不完整？" }
 
-# 上游版本号从补丁自带的 MANIFEST.json 里读（"app":"0.3.0"）
+# 上游版本号从补丁自带的 MANIFEST.json 里读（形如 "app":"0.3.1"）
 $manifest = Get-Content (Join-Path $patchDir "MANIFEST.json") -Raw
 if ($manifest -notmatch '"app"\s*:\s*"([^"]+)"') { throw "MANIFEST.json 里找不到 app 版本号" }
 $app = $Matches[1]

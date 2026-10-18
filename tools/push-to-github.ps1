@@ -22,6 +22,12 @@ param(
 # 而 git 的失败信息正好走 stderr，所以这里用 Continue，靠 $LASTEXITCODE 判断成败。
 $ErrorActionPreference = "Continue"
 $root = Split-Path -Parent $PSScriptRoot
+# 补丁对应的上游版本（成功提示里拼产物文件名用，从 patch/MANIFEST.json 读）
+$AppVer = "0.3.1"
+try {
+  $mf = Get-Content (Join-Path $root "patch\MANIFEST.json") -Raw | ConvertFrom-Json
+  if ($mf.app) { $AppVer = [string]$mf.app }
+} catch { }
 # 只有明确给了 token（或走 SSH）才禁用终端提示；否则保留提示，
 # 让 Git Credential Manager / 终端能弹窗要凭证——否则会直接报 "could not read Username"。
 if ($Token) { $env:GIT_TERMINAL_PROMPT = "0" }
@@ -189,9 +195,9 @@ Write-Host @"
 
   接下来：
    1. Actions 变绿后，Release 里应出现
-      stronghold-v0.3.0-landscape-patch.tar.gz 和 SHA256SUMS.txt
+      stronghold-v$AppVer-landscape-patch.tar.gz 和 SHA256SUMS.txt
    2. 验证下载：
-      curl.exe -L -o patch.tar.gz https://github.com/$GitHubUser/$Repo/releases/latest/download/stronghold-v0.3.0-landscape-patch.tar.gz
+      curl.exe -L -o patch.tar.gz https://github.com/$GitHubUser/$Repo/releases/latest/download/stronghold-v$AppVer-landscape-patch.tar.gz
    3. 右侧 About 填描述；Topics 建议
       stronghold-protocol arknights landscape patch gplv3
 ========================================

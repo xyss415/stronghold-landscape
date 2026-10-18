@@ -14,7 +14,7 @@ size/sha256，服务端更新校验也按版本进行。所以官方一发新版
 
     base   = 补丁包当初对应的官方版本（从补丁包自带 MANIFEST.json 的 app 字段读出）
     ours   = 横屏补丁包（我们改过的那 17 个文件）
-    theirs = 官方新版完整包
+    theirs = 官方新版完整包（.tar.gz 或官方发行的 .zip 都行）
 
 对「两边都改过」的文件做三方合并（git merge-file）；横屏新增的文件原样带过去；
 按新版重算 MANIFEST.json；然后输出：
@@ -31,8 +31,11 @@ size/sha256，服务端更新校验也按版本进行。所以官方一发新版
         [--base <官方旧版完整包>] [--dir <搜索目录>] [--out-dir <输出目录>]
         [--work-dir <工作目录>] [--resolved] [--force] [--fast]
 
+官方新版是 Stronghold-Protocol-vX.Y.Z.zip 时，--new 直接给这个 zip 即可；
+不指定 --new 时，也会自动找 --dir 里的 stronghold-v*-full.tar.gz 或 Stronghold-Protocol-v*.zip。
+
 典型：把官方新版完整包和横屏补丁包都放进 F:\\dsharness\\downloads，然后
-    python rebuild-landscape.py --ours F:\\dsharness\\downloads\\stronghold-v0.3.0-landscape-patch.tar.gz
+    python rebuild-landscape.py --ours F:\\dsharness\\downloads\\stronghold-v0.3.1-landscape-patch.tar.gz
 （--base / --new 会自动在 --dir 里找）
 
 依赖：python3、git（用于 git merge-file）、node（可选，用于语法检查）。
@@ -52,9 +55,11 @@ import sys
 import tarfile
 import tempfile
 import time
+import zipfile
 
 MANIFEST_REL = "MANIFEST.json"
 FULL_RE = re.compile(r"^stronghold-v(?P<v>.+)-full\.tar\.gz$")
+ZIP_RE = re.compile(r"^Stronghold-Protocol-v(?P<v>.+)\.zip$", re.IGNORECASE)
 
 
 # ----------------------------------------------------------------------------- 基础工具
@@ -97,6 +102,34 @@ def read_tar(path, wanted=None):
             files[rel] = fh.read() if fh is not None else b""
             infos[rel] = m
     return files, infos
+
+
+def zip_prefix(names):
+    """官方 zip 里所有文件都在一个顶层目录（Stronghold-Protocol/）下：返回该前缀。"""
+    tops = {n.split("/", 1)[0] for n in names if "/" in n}
+    return (next(iter(tops)) + "/") if len(tops) == 1 else ""
+
+
+def read_zip(path, wanted=None):
+    """读取官方 .zip（自动去掉顶层目录），返回 (files, infos)。"""
+    files, infos = {}, {}
+    with zipfile.ZipFile(path) as z:
+        names = [n for n in z.namelist() if not n.endswith("/")]
+        prefix = zip_prefix(names)
+        for n in names:
+            rel = norm(n[len(prefix):] if prefix and n.startswith(prefix) else n)
+            if wanted is not None and rel not in wanted:
+                continue
+            files[rel] = z.read(n)
+            infos[rel] = None
+    return files, infos
+
+
+def read_package(path, wanted=None):
+    """tar.gz 或官方 .zip 都能读。"""
+    if path.lower().endswith(".zip"):
+        return read_zip(path, wanted)
+    return read_tar(path, wanted)
 
 
 # ----------------------------------------------------------------------------- 三方合并
@@ -200,7 +233,7 @@ def find_new(search_dir: str, exclude, origin: str):
     except OSError:
         return None
     for name in names:
-        m = FULL_RE.match(name)
+        m = FULL_RE.match(name) or ZIP_RE.match(name)
         if not m:
             continue
         p = os.path.abspath(os.path.join(search_dir, name))
@@ -232,6 +265,9 @@ def write_patch_bundle(path: str, our_order, our_infos, payload: dict) -> None:
 
 def write_full_package(path: str, new_path: str, payload: dict, order_for_append) -> int:
     """流式改写官方新版：payload 里的成员替换掉，其余逐字节照抄；新成员追加在末尾。"""
+    if new_path.lower().endswith(".zip"):
+        return _write_full_from_zip(path, new_path, payload, order_for_append)
+
     appended = 0
     seen = set()
     with tarfile.open(new_path, "r:gz") as src, \
@@ -262,6 +298,42 @@ def write_full_package(path: str, new_path: str, payload: dict, order_for_append
     return appended
 
 
+def _write_full_from_zip(path: str, new_path: str, payload: dict, order_for_append) -> int:
+    """同上，但官方包是 .zip：逐条流式写进 tar.gz（不把大文件整块读进内存）。"""
+    appended = 0
+    seen = set()
+    now = int(time.time())
+    with zipfile.ZipFile(new_path) as z, \
+            tarfile.open(path, "w:gz", format=tarfile.PAX_FORMAT) as dst:
+        names = [n for n in z.namelist() if not n.endswith("/")]
+        prefix = zip_prefix(names)
+        for n in names:
+            rel = norm(n[len(prefix):] if prefix and n.startswith(prefix) else n)
+            ti = tarfile.TarInfo("./" + rel)
+            ti.mode = 0o644
+            ti.mtime = now
+            if rel in payload:
+                data = payload[rel]
+                ti.size = len(data)
+                dst.addfile(ti, io.BytesIO(data))
+                seen.add(rel)
+            else:
+                ti.size = z.getinfo(n).file_size
+                with z.open(n) as src:
+                    dst.addfile(ti, src)
+        for rel in order_for_append:
+            if rel in seen or rel not in payload:
+                continue
+            data = payload[rel]
+            ti = tarfile.TarInfo("./" + rel)
+            ti.size = len(data)
+            ti.mode = 0o644
+            ti.mtime = now
+            dst.addfile(ti, io.BytesIO(data))
+            appended += 1
+    return appended
+
+
 # ----------------------------------------------------------------------------- 主流程
 
 def main(argv=None):
@@ -270,8 +342,8 @@ def main(argv=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     ap.add_argument("--ours", required=True, help="横屏补丁包 stronghold-v*-landscape-patch.tar.gz")
-    ap.add_argument("--new", help="官方新版完整包 stronghold-v*-full.tar.gz（缺省自动查找）")
-    ap.add_argument("--base", help="官方旧版完整包（缺省按补丁包版本自动查找）")
+    ap.add_argument("--new", help="官方新版完整包 stronghold-v*-full.tar.gz 或 Stronghold-Protocol-v*.zip（缺省自动查找）")
+    ap.add_argument("--base", help="官方旧版完整包 .tar.gz/.zip（缺省按补丁包版本自动查找）")
     ap.add_argument("--dir", help="自动查找 base/new 的目录（缺省为 --ours 所在目录）")
     ap.add_argument("--out-dir", help="输出目录（缺省同 --dir）")
     ap.add_argument("--work-dir", help="工作目录（缺省 <out-dir>/_rebuild-v<newver>）")
@@ -290,7 +362,7 @@ def main(argv=None):
     os.makedirs(out_dir, exist_ok=True)
 
     say("== 读取横屏补丁包（ours）==")
-    our_files, our_infos = read_tar(ours_path)
+    our_files, our_infos = read_package(ours_path)
     if MANIFEST_REL not in our_files:
         die("补丁包里没有 MANIFEST.json，不像横屏补丁包")
     if "public/js/ui/landscape.js" not in our_files:
@@ -306,9 +378,13 @@ def main(argv=None):
 
     say("== 读取基准完整包（base）==")
     base_path = os.path.abspath(args.base) if args.base else os.path.join(search_dir, f"stronghold-v{origin}-full.tar.gz")
+    if not args.base and not os.path.isfile(base_path):
+        alt = os.path.join(search_dir, f"Stronghold-Protocol-v{origin}.zip")
+        if os.path.isfile(alt):
+            base_path = alt
     if not os.path.isfile(base_path):
-        die(f"找不到基准完整包 {base_path}\n    请把官方 v{origin} 完整包放到 {search_dir}，或用 --base 指定")
-    base_files, _ = read_tar(base_path, wanted=set(merge_rels))
+        die(f"找不到基准完整包 {base_path}\n    请把官方 v{origin} 完整包（stronghold-v{origin}-full.tar.gz 或 Stronghold-Protocol-v{origin}.zip）放到 {search_dir}，或用 --base 指定")
+    base_files, _ = read_package(base_path, wanted=set(merge_rels))
     say(f"   {base_path}")
 
     say("== 读取官方新版完整包（theirs）==")
@@ -318,7 +394,7 @@ def main(argv=None):
         new_path = find_new(search_dir, {os.path.abspath(ours_path), base_path}, origin)
     if not new_path or not os.path.isfile(new_path):
         die(f"找不到官方新版完整包。请下载后放到 {search_dir}，或用 --new 指定")
-    new_files, new_infos = read_tar(new_path, wanted=set(our_order))
+    new_files, new_infos = read_package(new_path, wanted=set(our_order))
     if MANIFEST_REL not in new_files:
         die("新版完整包里没有 MANIFEST.json")
     new_manifest = json.loads(new_files[MANIFEST_REL].decode("utf-8"))
@@ -333,11 +409,11 @@ def main(argv=None):
     merged, conflicts = {}, {}
 
     if args.resolved:
-        say(f"== --resolved：直接使用工作目录里的文件：{work} ==")
+        say(f"== --resolved：使用工作目录里已修好的文件：{work} ==")
         if not os.path.isdir(work):
             die(f"工作目录不存在：{work}")
         missing = []
-        for rel in our_order:
+        for rel in merge_rels:
             p = os.path.join(work, *rel.split("/"))
             if os.path.isfile(p):
                 with open(p, "rb") as fh:
@@ -348,6 +424,17 @@ def main(argv=None):
             die("工作目录里缺少这些文件：" + ", ".join(missing))
         for rel in merge_rels:
             conflicts[rel] = 1 if b"<<<<<<<" in merged[rel] else 0
+
+        say("== 按新版重算 MANIFEST.json ==")
+        updates = {rel: (len(data), sha256_hex(data)) for rel, data in merged.items()}
+        manifest_bytes, mode = build_manifest(new_files[MANIFEST_REL], updates)
+        merged[MANIFEST_REL] = manifest_bytes
+        say(f"   已按 v{newver} 重算（{mode} 方式），共更新 {len(updates)} 条")
+        for rel, data in merged.items():
+            p = os.path.join(work, *rel.split("/"))
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "wb") as fh:
+                fh.write(data)
     else:
         git = shutil.which("git")
         if not git:
@@ -359,6 +446,12 @@ def main(argv=None):
             theirs = new_files.get(rel)
             base = base_files.get(rel)
             if theirs is None:
+                if base is None:      # 我们的新增文件（landscape.js）：官方本来就没有
+                    merged[rel] = ours
+                    conflicts[rel] = 0
+                    n_clean += 1
+                    say(f"   + {rel}")
+                    continue
                 warn(f"新版里没有 {rel}（官方似乎删掉了）—— 保留我们的版本")
                 merged[rel] = ours
                 conflicts[rel] = 0
@@ -369,13 +462,12 @@ def main(argv=None):
             conflicts[rel] = c
             if c == 0:
                 n_clean += 1
-            elif c > 0:
-                n_conf += 1
             else:
                 n_conf += 1
             flag = "  <- 冲突" if c else ""
             say(f"   {'~' if c else '='} {rel}{flag}")
-        say(f"   合并完成：{n_clean} 个自动/干净，{n_conf} 个有冲突")
+        extra = f"（另有 {n_auto} 个官方已删除，保留我们的版本）" if n_auto else ""
+        say(f"   合并完成：{n_clean} 个干净，{n_conf} 个有冲突{extra}")
 
         say("== 重算 MANIFEST.json ==")
         updates = {rel: (len(data), sha256_hex(data)) for rel, data in merged.items()}
@@ -455,13 +547,13 @@ def main(argv=None):
     # ---- 复查 ----
     say("== 复查 ==")
     bad = []
-    rb, _ = read_tar(patch_out)
+    rb, _ = read_package(patch_out)
     for rel in our_order:
         if rb.get(rel) != merged[rel]:
             bad.append(f"补丁包 {rel} 与合并结果不一致")
     say(f"   增量补丁包：{len(rb)} 个文件，" + ("全部一致" if not bad else "有不一致!"))
     if not args.fast:
-        rfull, rfull_infos = read_tar(full_out, wanted=set(our_order))
+        rfull, rfull_infos = read_package(full_out, wanted=set(our_order))
         miss = [r for r in our_order if r not in rfull]
         for rel in our_order:
             if rel in rfull and rfull[rel] != merged[rel]:
@@ -487,14 +579,19 @@ def main(argv=None):
     # ---- 部署脚本 ----
     if not args.no_scripts:
         kit = os.path.dirname(os.path.abspath(__file__))
+        src_dirs = [kit, os.path.join(kit, os.pardir, "deploy")]
         copied = []
         for name in ("deploy-landscape.sh", "deploy-landscape-patch.sh"):
-            src = os.path.join(kit, name)
-            if os.path.isfile(src):
-                shutil.copy2(src, os.path.join(out_dir, name))
-                copied.append(name)
+            for d in src_dirs:
+                src = os.path.join(d, name)
+                if os.path.isfile(src):
+                    shutil.copy2(src, os.path.join(out_dir, name))
+                    copied.append(name)
+                    break
         if copied:
             say(f"   已复制版本无关的部署脚本到输出目录：{', '.join(copied)}")
+        else:
+            warn("没找到 deploy-landscape*.sh 部署脚本（跳过复制）")
 
     # ---- 收尾 ----
     def sha(p):

@@ -1,14 +1,15 @@
 #!/bin/bash
 # =============================================================================
-# 卫戍协议：盟约 · v0.3.0 横屏适配版 · 增量更新部署（0.3.0 → 0.3.0+横屏）
+# 卫戍协议：盟约 · 一键横屏 · 增量更新部署（版本无关，可长期复用）
 #
-#   前提：安装目录里已经是 v0.3.0（官方完整包）
+#   前提：安装目录里已经是「补丁包对应的那一版官方完整包」——脚本自己从补丁包的
+#         MANIFEST.json 里读出所需版本并核对，不符就中止（不会乱改安装目录）。
 #   补丁包只含 16 个替换文件 + 1 个新增文件（约 640 KB）：
-#     不需要上传 780 MB 完整包、不动 node_modules / public/assets、不用 npm ci、不用联网。
+#     不需要上传完整包、不动 node_modules / public/assets、不用 npm ci、不用联网。
 #
 #   用法（root）：
-#     1) 上传 stronghold-v0.3.0-landscape-patch.tar.gz 到 /www/wwwroot/
-#     2) cd /www/wwwroot && bash deploy-v030-landscape-patch.sh
+#     1) 上传 stronghold-v*-landscape-patch.tar.gz 到 /www/wwwroot/
+#     2) cd /www/wwwroot && bash deploy-landscape-patch.sh
 #
 #   脚本会：检查前提 → 备份当前代码（几百KB）→ 停服务 → 覆盖解压 → 权限
 #           → 启动并验证 /healthz 与 landscape.js → 打印一键回滚命令
@@ -19,7 +20,7 @@ set -uo pipefail
 
 BASE=/www/wwwroot
 INSTALL="$BASE/game-stronghold"
-PKG="$BASE/stronghold-v0.3.0-landscape-patch.tar.gz"
+PKG=""
 SVC=stronghold
 PORT=3001
 [ -f /etc/default/$SVC ] && PORT=$(grep -oP '^PORT=\K.*' /etc/default/$SVC 2>/dev/null || echo 3001)
@@ -45,14 +46,17 @@ done
 [ "$(id -u)" -eq 0 ] || die "请用 root 运行"
 [ -d "$INSTALL" ] || die "找不到安装目录 $INSTALL（全新安装请用一键部署 deploy-v030-landscape.sh）"
 [ -f "$INSTALL/server/index.js" ] || die "$INSTALL 不像游戏安装目录（缺 server/index.js）"
-if [ ! -f "$PKG" ]; then
+if [ -n "$PKG" ] && [ ! -f "$PKG" ]; then
   warn "找不到 $PKG，尝试自动搜索别处…"
+  PKG=""
+fi
+if [ -z "$PKG" ]; then
   for c in "$(ls -1t "$BASE"/*landscape*patch*.tar.gz /root/*landscape*patch*.tar.gz "$(pwd)"/*landscape*patch*.tar.gz 2>/dev/null | head -1)" \
            "$(find /www /root -maxdepth 4 -name '*landscape*patch*.tar.gz' -type f 2>/dev/null | head -1)"; do
     [ -n "$c" ] && [ -f "$c" ] && { PKG="$c"; break; }
   done
 fi
-[ -n "$PKG" ] && [ -f "$PKG" ] || die "找不到补丁包。上传 stronghold-v0.3.0-landscape-patch.tar.gz 到 $BASE/ 后重试，或用 --pkg 指定"
+[ -n "$PKG" ] && [ -f "$PKG" ] || die "找不到横屏增量补丁包（stronghold-v*-landscape-patch.tar.gz）。上传到 $BASE/ 后重试，或用 --pkg 指定"
 
 # 读取补丁清单（去掉前导 ./）
 MEMBERS=()
@@ -63,22 +67,27 @@ case " ${MEMBERS[*]} " in
   *) die "补丁包内容不对（缺 public/js/ui/landscape.js），请确认上传的是 *-landscape-patch.tar.gz" ;;
 esac
 
+# 从补丁包自带的 MANIFEST.json 读出这一版补丁适用于哪个官方版本
+NEED=$(tar -xzOf "$PKG" ./MANIFEST.json 2>/dev/null | head -1 | sed -n 's/.*"app":"\([^"]*\)".*/\1/p')
+[ -n "$NEED" ] || NEED=$(tar -xzOf "$PKG" MANIFEST.json 2>/dev/null | head -1 | sed -n 's/.*"app":"\([^"]*\)".*/\1/p')
+[ -n "$NEED" ] || die "无法从补丁包的 MANIFEST.json 读出所需版本，包可能损坏：$PKG"
+
 say "1/6 检查升级前提"
 CUR=$(ver "$INSTALL/package.json"); CUR=${CUR:-未知}
 echo "  当前安装 : v$CUR"
 echo "  补丁包   : $PKG（$(du -h "$PKG" | cut -f1)，共 ${#MEMBERS[@]} 个文件）"
-if [ "$CUR" != "0.3.0" ]; then
-  warn "当前版本是 v$CUR，这个补丁是针对 v0.3.0 的（覆盖 public/js·css·i18n 等）。
-  先装官方 v0.3.0 完整包：bash deploy-v030.sh
-  再执行：bash deploy-v030-landscape-patch.sh"
+echo "  补丁适用 : v$NEED"
+if [ "$CUR" != "$NEED" ]; then
+  warn "当前是 v$CUR，但这个补丁是针对 v$NEED 的（覆盖 public/js·css·i18n 等）。
+  请先把安装目录恢复/安装到官方 v$NEED 完整包，再执行本脚本。"
   die "版本不匹配，已中止（安装目录未被改动）"
 fi
-echo "  版本匹配 ✅（v0.3.0）"
+echo "  版本匹配 ✅（v$NEED）"
 
-say "2/6 备份当前 v0.3.0 代码（几百 KB）"
+say "2/6 备份当前 v$CUR 代码（几百 KB）"
 TS=$(date +%Y%m%d%H%M%S)
 mkdir -p "$BACKUP_DIR"
-BAK="$BACKUP_DIR/code-v0.3.0-before-landscape-$TS.tar.gz"
+BAK="$BACKUP_DIR/code-v$CUR-before-landscape-$TS.tar.gz"
 tar -czf "$BAK" -C "$INSTALL" MANIFEST.json docs public/index.html public/js public/css public/i18n 2>/dev/null || true
 [ -s "$BAK" ] || die "备份失败（$BAK），未做改动"
 echo "  已备份：$BAK（$(du -h "$BAK" | cut -f1)）"
@@ -134,7 +143,7 @@ NODE_BIN=$(command -v node || echo /www/server/nodejs/v24.21.0/bin/node)
 
 cat <<EOF
 
-=============== v0.3.0 横屏适配版 · 增量更新完成 ===============
+=============== v$CUR 横屏适配版 · 增量更新完成 ===============
   浏览器验证：http://127.0.0.1:$PORT/（或你自己的域名）   ← 无痕窗口或 Ctrl+F5（旧缓存会显示老界面）
   版本确认  ：curl -s http://127.0.0.1:$PORT/healthz
 
@@ -148,7 +157,7 @@ cat <<EOF
   备份文件：$BAK
   日志    ：journalctl -u $SVC -f
 
-  本补丁相对官方 v0.3.0 的改动（不影响联机，只覆盖 ${#MEMBERS[@]} 个文件）：
+  本补丁相对官方 v$NEED 的改动（不影响联机，只覆盖 ${#MEMBERS[@]} 个文件）：
    · 新增 public/js/ui/landscape.js：一键横屏（转画面，不依赖系统转屏）
    · 提示层新增「一键横屏 / 全屏」按钮；设置里有「强制横屏」开关
    · 对局 HUD 角与标题画面也有旋转按钮；设备真横过来时自动恢复

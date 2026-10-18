@@ -75,11 +75,11 @@ GPL-3.0-or-later); the English game texts (`data/i18n/en.json`) are official EN 
 
 ## 本仓库（一键横屏补丁）的补充说明
 
-本仓库是 [卫戍协议：盟约 / Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol) v0.3.0 的
+本仓库是 [卫戍协议：盟约 / Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol) v0.3.1 的
 **非官方补丁**，不是上游项目本身：
 
 - 以上第 1 节的 GPL-3.0-or-later 授权同样适用于本仓库自己编写的代码（`public/js/ui/landscape.js`、
-  `deploy/`、`tools/`）。补丁里的其余文件是上游 v0.3.0 文件的**修改副本**，一并按 GPL-3.0-or-later 分发；
+  `deploy/`、`tools/`）。补丁里的其余文件是上游 v0.3.1 文件的**修改副本**，一并按 GPL-3.0-or-later 分发；
   上游 NOTICE 的全文保留在本文件中，未作删改。
 - 第 2 节的素材声明同样适用：本仓库**不包含**任何《明日方舟》美术、Spine 模型、音乐音效或游戏数据。
 - 本补丁仅供学习交流与个人非商业使用，**严禁任何形式的盈利**，与上游项目的声明一致。
