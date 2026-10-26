@@ -74,6 +74,20 @@ bash deploy-landscape-patch.sh --install /www/wwwroot/game-stronghold --pkg /roo
 用横屏完整包 `stronghold-v0.3.3-full-landscape.tar.gz`（约 800 MB，见 Release 资产或上游仓库），
 按上游 [README · 快速开始](https://github.com/sganggs/Stronghold-Protocol#快速开始) 部署即可。
 
+### 方式三：原地升级（已有旧版安装，保留 `data/`、`plugins/`、`packs/`）
+
+如果服务器上已经有旧版（官方版或旧版横屏补丁），不想整体替换安装目录：
+
+```bash
+# 1) 上传横屏完整包到 /www/wwwroot/
+# 2) 覆盖解压到现有安装目录，但跳过 data/ plugins/ packs/
+cd /www/wwwroot
+bash upgrade-in-place-landscape.sh
+```
+
+脚本会先做硬链接快照（秒级、几乎不占空间），再覆盖解压、修权限、启动并验证；
+版本号从包内 `package.json` 读取，回滚命令会打印出来。
+
 ### 验证
 
 ```bash
@@ -118,7 +132,8 @@ python rebuild-landscape.py --ours stronghold-v0.3.3-landscape-patch.tar.gz \
 │  ├─ MANIFEST.json              #   v0.3.3 文件清单 + size/sha256（服务端校验用）
 │  ├─ docs/PLAYING.md
 │  └─ public/{index.html,css,js,i18n}/
-├─ deploy/deploy-landscape-patch.sh
+├─ deploy/deploy-landscape-patch.sh   # 增量补丁部署（版本无关）
+├─ deploy/upgrade-in-place-landscape.sh  # 完整包原地升级（保留 data/ plugins/ packs/）
 ├─ tools/
 │  ├─ build-patch.ps1            # 打包 patch/ → dist/*.tar.gz + SHA256SUMS
 │  ├─ build-patch.sh             # 同上（Linux / CI 用）
