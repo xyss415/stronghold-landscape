@@ -18,11 +18,14 @@ mkdir -p "$OUT"
 NAME="stronghold-v${APP}-landscape-patch.tar.gz"
 # -C patch . → 包内路径带 ./ 前缀，和原始补丁包一致
 tar -czf "$OUT/$NAME" -C "$PATCH_DIR" .
+LIST=$(tar -tzf "$OUT/$NAME")
 
-tar -tzf "$OUT/$NAME" | grep -q 'public/js/ui/landscape\.js$' \
+printf '%s\n' "$LIST" | grep -q 'public/js/ui/landscape\.js$' \
   || { echo "[x] 产物里没有 public/js/ui/landscape.js，打包目录不对" >&2; exit 1; }
 
-COUNT=$(tar -tzf "$OUT/$NAME" | grep -vc '/$' || true)
+# 注意：不要写成 `tar -tzf ... | grep -q`——grep 提前退出会让 tar 收到 SIGPIPE，
+# 在 set -o pipefail 下整条管线变成失败（GitHub Actions 上就是这样挂的）。
+COUNT=$(printf '%s\n' "$LIST" | grep -vc '/$' || true)
 ( cd "$OUT" && sha256sum "$NAME" > SHA256SUMS.txt )
 
 echo
