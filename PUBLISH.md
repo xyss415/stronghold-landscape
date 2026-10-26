@@ -34,7 +34,7 @@ Select-String -Path (Get-ChildItem -Recurse -File -Include *.sh,*.js,*.md).FullN
 
 1. 打开 <https://github.com/new>
 2. **Repository name**：`stronghold-landscape`
-3. **Description**：`卫戍协议：盟约 v0.3.1 一键横屏补丁 —— 转画面，不转设备`
+3. **Description**：`卫戍协议：盟约 v0.3.3 一键横屏补丁 —— 转画面，不转设备`
 4. 选 **Public**（私有仓库别人下不了 Release，插件就没意义了）
 5. **不要**勾 "Add a README / .gitignore / license"——本地已经有了，勾了会导致首次 push 冲突
 6. Create repository
@@ -60,7 +60,7 @@ git log --oneline
 
 ## 3. 关联远程并推送
 
-> origin 已经配好（`https://github.com/xyss415/stronghold-landscape.git`），本地有 2 个提交 + tag `v0.3.1-ls1`。
+> origin 已经配好（`https://github.com/xyss415/stronghold-landscape.git`），本地提交 + tag `v0.3.3-ls1`。
 > 最省事的方式：在有 GitHub 网络的机器上跑 `powershell -NoProfile -File tools\push-to-github.ps1`
 > ——它会自检状态、测连通性、推 `main` 和所有 tag，失败时直接给出对应处理办法。
 > 走代理加 `-Proxy 127.0.0.1:7890`，只想检查加 `-DryRun`。
@@ -72,7 +72,7 @@ git log --oneline
 ```powershell
 git remote add origin https://github.com/xyss415/stronghold-landscape.git
 git push -u origin main            # 用户名 xyss415，密码处粘 PAT
-git push origin v0.3.1-ls1        # 触发 Actions → 自动建 Release
+git push origin v0.3.3-ls1        # 触发 Actions → 自动建 Release
 ```
 
 想用 SSH 而不是 PAT：
@@ -102,8 +102,8 @@ git push origin main --tags
 **方式 A：打 tag，Actions 自动打包发布**
 
 ```powershell
-git tag -a v0.3.1-ls1 -m "landscape patch for upstream 0.3.1"
-git push origin v0.3.1-ls1
+git tag -a v0.3.3-ls1 -m "landscape patch for upstream 0.3.3"
+git push origin v0.3.3-ls1
 ```
 
 `.github/workflows/release.yml` 会 `bash tools/build-patch.sh` 打包、校验包里含
@@ -113,10 +113,10 @@ git push origin v0.3.1-ls1
 
 ```powershell
 powershell -NoProfile -File tools\build-patch.ps1
-# → dist/stronghold-v0.3.1-landscape-patch.tar.gz + SHA256SUMS.txt
+# → dist/stronghold-v0.3.3-landscape-patch.tar.gz + SHA256SUMS.txt
 ```
 
-GitHub → Releases → *Draft a new release* → tag `v0.3.1-ls1` → 标题「横屏补丁 v0.3.1-ls1」
+GitHub → Releases → *Draft a new release* → tag `v0.3.3-ls1` → 标题「横屏补丁 v0.3.3-ls1」
 → 说明直接粘 `CHANGELOG.md` → 上传两个文件 → Publish。
 
 **方式 C：gh CLI**
@@ -124,18 +124,18 @@ GitHub → Releases → *Draft a new release* → tag `v0.3.1-ls1` → 标题「
 ```powershell
 winget install --id GitHub.cli -e
 gh auth login
-gh release create v0.3.1-ls1 (Get-ChildItem dist\*.tar.gz).FullName dist\SHA256SUMS.txt `
-  --title "横屏补丁 v0.3.1-ls1" --notes-file CHANGELOG.md
+gh release create v0.3.3-ls1 (Get-ChildItem dist\*.tar.gz).FullName dist\SHA256SUMS.txt `
+  --title "横屏补丁 v0.3.3-ls1" --notes-file CHANGELOG.md
 ```
 
-可选：把横屏**完整包**（`stronghold-v0.3.1-full-landscape.tar.gz`，约 780 MB）也挂到同一个
+可选：把横屏**完整包**（`stronghold-v0.3.3-full-landscape.tar.gz`，约 800 MB）也挂到同一个
 Release 里，玩家不想打补丁就能直接装。它永远不进 git。
 
 ## 5. 补全仓库信息
 
 - 右侧 **About** ⚙：粘贴描述；Website 可填游戏地址或空；**Topics** 建议
   `stronghold-protocol` `arknights` `landscape` `mobile` `patch` `gplv3` `webgame`
-- **Releases**：把 v0.3.1-ls1 勾成 *Latest*
+- **Releases**：把 v0.3.3-ls1 勾成 *Latest*
 - **Settings → General → Features**：Issues 打开（收兼容性反馈），Discussions 可选
 - 确认 LICENSE 页显示 **GPL-3.0**；README 顶部徽章里的链接点一遍
 - 可选：Settings → Pages 用 `docs/` 起个静态页放效果截图
@@ -144,7 +144,7 @@ Release 里，玩家不想打补丁就能直接装。它永远不进 git。
 
 | 别提交 | 原因 |
 |---|---|
-| `stronghold-v0.3.1-full*.tar.gz`（780–800 MB） | 单文件 >100 MB 直接被 GitHub 拒收；进过历史还得 `git filter-repo` 清 |
+| `stronghold-v0.3.3-full*.tar.gz`（800–830 MB） | 单文件 >100 MB 直接被 GitHub 拒收；进过历史还得 `git filter-repo` 清 |
 | `node_modules/`、`public/assets/` | 上游素材，且体积大；补丁用不到 |
 | 服务器 IP / 域名 / 面板地址 / SSH 私钥 | 泄露后很难收回。脚本里已改成 `127.0.0.1` 和相对路径 |
 | 备份 tar（`/www/backup/...`） | 里面是别人服务器的代码快照 |
@@ -169,9 +169,9 @@ Release 里，玩家不想打补丁就能直接装。它永远不进 git。
 
 如果 `sganggs/Stronghold-Protocol` 也是你的仓库，那更省事的做法是把这个改动做成上游的一个分支，
 或者干脆在上游内置「强制横屏」开关，而不是长期维护一个和版本严格绑定的补丁包
-（补丁里的 `MANIFEST.json` 记着 v0.3.1 每个文件的 sha256，上游一升级补丁就失效，得用
+（补丁里的 `MANIFEST.json` 记着 v0.3.3 每个文件的 sha256，上游一升级补丁就失效，得用
 `tools/rebuild-landscape.py` 重新定基）。
 
-顺便说明为什么不打包成 0.3.1 的插件系统（`plugins/*/plugin.json`）：插件系统的 UI 插件只能操作 DOM，
+顺便说明为什么不打包成 0.3.3 的插件系统（`plugins/*/plugin.json`）：插件系统的 UI 插件只能操作 DOM，
 够不到渲染层的坐标换算，而横屏需要阴影 `getBoundingClientRect` / `elementFromPoint` /
 `innerWidth` 这些原型，只能改本体文件。

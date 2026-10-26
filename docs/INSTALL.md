@@ -1,18 +1,18 @@
 # 安装与排错
 
-补丁包 = `stronghold-v0.3.1-landscape-patch.tar.gz`（约 700 KB，17 个文件）。
+补丁包 = `stronghold-v0.3.3-landscape-patch.tar.gz`（约 750 KB，17 个文件）。
 它只是**覆盖替换**若干文件，不安装依赖、不改数据库、不改 `package.json`。
 
 ## 0. 前提
 
-- 服务器上已经装好**官方 v0.3.1**（安装目录里有 `server/index.js` 与 `package.json`，`version` 为 `0.3.1`）
+- 服务器上已经装好**官方 v0.3.3**（安装目录里有 `server/index.js` 与 `package.json`，`version` 为 `0.3.3`）
 - 有 root 权限（`systemctl`、`chown`）
 - 默认路径 / 服务名（可用参数覆盖）：
 
 | 变量 | 默认值 | 覆盖方式 |
 |---|---|---|
 | 安装目录 | `/www/wwwroot/game-stronghold` | `--install <目录>` |
-| 补丁包 | `/www/wwwroot/stronghold-v0.3.1-landscape-patch.tar.gz` | `--pkg <路径>` |
+| 补丁包 | `/www/wwwroot/stronghold-v0.3.3-landscape-patch.tar.gz` | `--pkg <路径>` |
 | systemd 服务 | `stronghold` | 改脚本里的 `SVC` |
 | 端口 | `3001`（读 `/etc/default/stronghold` 的 `PORT`） | 改 `/etc/default/stronghold` |
 | 代码备份 | `/www/backup/stronghold-code/` | 改脚本里的 `BACKUP_DIR` |
@@ -22,17 +22,17 @@
 ```bash
 # 宝塔面板：文件 → /www/wwwroot/ → 上传
 # 或者
-scp stronghold-v0.3.1-landscape-patch.tar.gz root@HOST:/www/wwwroot/
+scp stronghold-v0.3.3-landscape-patch.tar.gz root@HOST:/www/wwwroot/
 
 # 直接拉 Release 资产
 cd /www/wwwroot
-curl -L -O https://github.com/xyss415/stronghold-landscape/releases/latest/download/stronghold-v0.3.1-landscape-patch.tar.gz
+curl -L -O https://github.com/xyss415/stronghold-landscape/releases/latest/download/stronghold-v0.3.3-landscape-patch.tar.gz
 ```
 
 先看一眼内容（应当是 17 个文件、含 `public/js/ui/landscape.js`）：
 
 ```bash
-tar -tzf stronghold-v0.3.1-landscape-patch.tar.gz | sort
+tar -tzf stronghold-v0.3.3-landscape-patch.tar.gz | sort
 ```
 
 ## 2. 执行
@@ -43,6 +43,7 @@ bash deploy-landscape-patch.sh
 ```
 
 > ⚠️ 脚本会 `systemctl stop`，正在进行的对局会中断（游戏无存档）。请在没人玩的时候做。
+> 脚本会自己从补丁包的 `MANIFEST.json` 读出所需版本（当前为 `0.3.3`），版本对不上直接中止。
 
 脚本六步：检查前提 → 备份 → 停服务 → 覆盖解压 → 权限 → 起服务并自检。
 任何一步失败都会中止并保留原状（解压失败会重启服务、告诉你回滚命令）。
@@ -66,7 +67,7 @@ curl -s http://127.0.0.1:3001/js/ui/landscape.js | grep -c sp-force-landscape   
 
 ```bash
 systemctl stop stronghold
-tar -xzf /www/backup/stronghold-code/code-v0.3.1-before-landscape-<时间戳>.tar.gz \
+tar -xzf /www/backup/stronghold-code/code-v0.3.3-before-landscape-<时间戳>.tar.gz \
     -C /www/wwwroot/game-stronghold
 rm -f /www/wwwroot/game-stronghold/public/js/ui/landscape.js
 systemctl start stronghold
@@ -79,7 +80,7 @@ systemctl start stronghold
 
 | 现象 | 原因 / 处理 |
 |---|---|
-| `版本不匹配，已中止` | 安装目录不是 0.3.1。先装官方 0.3.1 完整包，再打补丁（安装目录未被改动） |
+| `版本不匹配，已中止` | 安装目录不是 0.3.3。先装官方 0.3.3 完整包，再打补丁（安装目录未被改动） |
 | `找不到安装目录` | 用 `--install` 指定，或确认游戏装在哪 |
 | `补丁包内容不对（缺 public/js/ui/landscape.js）` | 上传错包（比如传了完整包或只传了一半）；重新 `tar -tzf` 检查 |
 | 服务起不来 / `/healthz` 不通 | 脚本会打印 `journalctl -u stronghold -n 50` 与 `-error.log` 末 30 行，并按提示回滚 |

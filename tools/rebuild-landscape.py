@@ -35,7 +35,7 @@ size/sha256，服务端更新校验也按版本进行。所以官方一发新版
 不指定 --new 时，也会自动找 --dir 里的 stronghold-v*-full.tar.gz 或 Stronghold-Protocol-v*.zip。
 
 典型：把官方新版完整包和横屏补丁包都放进 F:\\dsharness\\downloads，然后
-    python rebuild-landscape.py --ours F:\\dsharness\\downloads\\stronghold-v0.3.1-landscape-patch.tar.gz
+    python rebuild-landscape.py --ours F:\\dsharness\\downloads\\stronghold-v0.3.3-landscape-patch.tar.gz
 （--base / --new 会自动在 --dir 里找）
 
 依赖：python3、git（用于 git merge-file）、node（可选，用于语法检查）。
@@ -561,8 +561,12 @@ def main(argv=None):
         if miss:
             bad.append("完整包缺少：" + ", ".join(miss))
         # 成员数：应等于新包成员数 + 追加数
-        with tarfile.open(new_path, "r:gz") as t:
-            n_new = len(t.getmembers())
+        if new_path.lower().endswith(".zip"):
+            with zipfile.ZipFile(new_path) as z:
+                n_new = sum(1 for n in z.namelist() if not n.endswith("/"))
+        else:
+            with tarfile.open(new_path, "r:gz") as t:
+                n_new = len(t.getmembers())
         with tarfile.open(full_out, "r:gz") as t:
             n_out = len(t.getmembers())
         expect = n_new + appended

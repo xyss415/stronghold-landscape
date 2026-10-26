@@ -23,7 +23,7 @@ param(
 $ErrorActionPreference = "Continue"
 $root = Split-Path -Parent $PSScriptRoot
 # 补丁对应的上游版本（成功提示里拼产物文件名用，从 patch/MANIFEST.json 读）
-$AppVer = "0.3.1"
+$AppVer = "0.3.3"
 try {
   $mf = Get-Content (Join-Path $root "patch\MANIFEST.json") -Raw | ConvertFrom-Json
   if ($mf.app) { $AppVer = [string]$mf.app }
@@ -117,7 +117,7 @@ if ($Token) {
 
 $pushArgs = @("push")
 if ($Force) { $pushArgs += "--force" }
-$pushArgs += @($pushUrl, "refs/heads/$branch:refs/heads/$branch")
+$pushArgs += @($pushUrl, "refs/heads/${branch}:refs/heads/${branch}")
 
 $mode = ""
 if ($Force) { $mode = "（强推）" }

@@ -2,6 +2,27 @@
 
 版本号约定：`v<上游版本>-ls<n>`，本补丁与上游版本严格绑定（`MANIFEST.json` 记录每个文件的 `size`/`sha256`）。
 
+## v0.3.3-ls1 — 2026-10-26
+
+对应上游 v0.3.3 的重定基版本。横屏功能本身没有变化，改动全部来自上游 0.3.2 / 0.3.3 的更新与三方合并。
+
+**适配**
+
+- 补丁重新基于上游 v0.3.3：`MANIFEST.json` 按 0.3.3 重算（7077 个文件），补丁仍为 17 个文件。
+- 与上游 v0.3.3 在 5 个文件的同区改动已合并：`public/css/screens/draft.css`、
+  `public/css/screens/game.css`、`public/js/main.js`、`public/js/screens/game.js`、
+  `public/js/ui/settings.js`。
+- 上游新增的 `--sp-ui` 界面缩放（`max(…, 32px, calc(… * var(--sp-ui, 1)))`）与横屏的
+  `--app-w / --app-h` 应用帧尺寸叠在一起：两个弹层 / HUD 保持上游的新尺寸，同时仍按旋转后的可见视口收边。
+- 上游 v0.3.3 新增的全屏 / 屏幕常亮（`useFullscreen`、`useScreenWakeLock`、`isCombatPhase`）与
+  横屏模块共存；`main.js` 同时保留两边的 import 与 `installLandscape()` 调用。
+
+**兼容**
+
+- 只适用于上游 **v0.3.3**；从 v0.3.1 升级请先恢复/安装官方 v0.3.3，再打补丁。
+- `deploy/deploy-landscape-patch.sh` 保持版本无关：从补丁包的 `MANIFEST.json` 读取所需版本，不匹配直接中止。
+- `tools/rebuild-landscape.py` 修了官方 `.zip` 包在 `--resolved` 复查阶段的成员计数（之前会把 zip 当 tar.gz 打开）。
+
 ## v0.3.1-ls1 — 2026-10-18
 
 对应上游 v0.3.1 的重定基版本。横屏功能本身没有变化，改动全部来自上游 0.3.1 的更新与三方合并。
